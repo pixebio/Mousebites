@@ -5,36 +5,365 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Snake Game</title>
   <style>
-    :root{--bg:#07151a;--bg-2:#0d232d;--panel:rgba(14,28,36,0.95);--panel-2:rgba(17,39,49,0.96);--text:#edf7ff;--muted:#b9d7e6;--shadow:rgba(0,0,0,0.28)}
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:radial-gradient(circle at top,var(--bg-2),var(--bg) 46%,#040c0f 100%);color:var(--text);font-family:Arial,Helvetica,sans-serif}
-    body{display:flex;flex-direction:column;align-items:center;padding:18px;min-height:100vh}
+    :root {
+      --bg: #07151a;
+      --bg-2: #0d232d;
+      --panel: rgba(14, 28, 36, 0.96);
+      --panel-2: rgba(17, 39, 49, 0.97);
+      --panel-3: rgba(22, 52, 64, 0.98);
+      --text: #edf7ff;
+      --muted: #b9d7e6;
+      --green: #32a852;
+      --green-2: #05611d;
+      --gold: #fcba03;
+      --danger: #ff5d73;
+      --shadow: rgba(0, 0, 0, 0.28);
+      --grid: rgba(125, 211, 252, 0.14);
+    }
 
-    /* Topbar */
-    .topbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);width:min(1120px,calc(100% - 36px));display:flex;gap:12px;align-items:center;justify-content:flex-start;padding:8px;border-radius:12px;background:linear-gradient(180deg,#102027, #0b1b22);border:1px solid rgba(125,211,252,0.08);z-index:60}
-    details.top-dropdown{background:transparent;border-radius:10px;padding:4px 8px;color:var(--text)}
-    details.top-dropdown summary{cursor:pointer;font-weight:700}
-    .panel-content{display:none;margin-top:8px;max-height:320px;overflow:auto;background:rgba(8,18,24,0.7);padding:8px;border-radius:8px}
-    details.top-dropdown[open] > .panel-content{display:block}
+    * { box-sizing: border-box; }
 
-    .app{width:min(1120px,100%);margin-top:82px;display:flex;gap:18px;align-items:flex-start;justify-content:center}
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: radial-gradient(circle at top, var(--bg-2), var(--bg) 50%, #040c0f 100%);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
-    .game-column{display:flex;flex-direction:column;gap:12px;align-items:center;width:100%;max-width:460px}
-    .hud{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border-radius:12px;background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid rgba(138,196,255,0.08)}
-    .hud .controls{display:flex;gap:8px;align-items:center}
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 18px 18px 32px;
+    }
 
-    .game-wrap{width:100%;max-width:420px;border-radius:14px;overflow:visible;background:linear-gradient(180deg,#021b1c,#0a2d2d);border:1px solid rgba(138,196,255,0.08);box-shadow:0 18px 34px rgba(0,0,0,0.28)}
-    canvas{display:block;width:100%;height:auto;background:linear-gradient(180deg,rgba(4,24,28,0.98),rgba(3,27,33,0.96));image-rendering:pixelated;border-radius:14px}
+    button, select, input {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid rgba(125, 211, 252, 0.18);
+      background: linear-gradient(180deg, var(--panel-3), var(--panel-2));
+      color: var(--text);
+      padding: 8px 10px;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
 
-    .overlay{position:fixed;inset:0;background:rgba(2,8,11,0.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:70}
-    .overlay.hidden{display:none}
-    #pauseOverlay,#deathOverlay{position:absolute;inset:0;background:rgba(2,8,11,0.86);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+    button {
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 14px rgba(0,0,0,0.18);
+    }
 
-    .mobile-controls{display:none;width:100%;max-width:420px;margin-top:6px;gap:8px;flex-direction:column;align-items:center}
-    .mobile-pad{display:grid;grid-template-columns:repeat(3,minmax(52px,74px));gap:8px;justify-content:center}
-    .mobile-btn{min-width:52px;min-height:52px;border-radius:14px;font-size:22px;font-weight:700}
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+    }
 
-    @media (max-width:760px){body{padding:10px}.topbar{left:8px;transform:none;width:calc(100% - 16px);top:8px}.app{margin-top:78px}.mobile-controls{display:flex}}
+    button:active {
+      transform: translateY(0);
+    }
+
+    select {
+      width: 100%;
+    }
+
+    /*
+      Main layout:
+      - fixed header for Accounts / Keybinds / Options / Leaderboards
+      - centered game stage sized to roughly 70% of the viewport
+      - canvas overlays for start/pause/death screens, all constrained to the game area
+    */
+    .topbar {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(1120px, calc(100% - 24px));
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(16, 32, 39, 0.97), rgba(11, 24, 30, 0.96));
+      border: 1px solid rgba(125, 211, 252, 0.09);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+      z-index: 50;
+      flex-wrap: wrap;
+    }
+
+    .top-dropdown {
+      background: transparent;
+      border-radius: 10px;
+      color: var(--text);
+      min-width: 160px;
+      max-width: 270px;
+    }
+
+    .top-dropdown summary {
+      list-style: none;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(19, 40, 49, 0.72);
+      border: 1px solid rgba(125, 211, 252, 0.08);
+    }
+
+    .top-dropdown summary::-webkit-details-marker { display: none; }
+
+    .panel-content {
+      display: none;
+      margin-top: 8px;
+      background: rgba(7, 17, 21, 0.8);
+      border: 1px solid rgba(125, 211, 252, 0.08);
+      border-radius: 10px;
+      padding: 10px;
+      min-width: 220px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .top-dropdown[open] > .panel-content {
+      display: block;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .stack {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .game-shell {
+      width: min(68vw, 560px);
+      min-width: 280px;
+      margin-top: 92px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .score-badge {
+      width: min(68vw, 560px);
+      min-width: 280px;
+      margin: 0 0 10px;
+      text-align: right;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .game-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(2, 24, 27, 0.98), rgba(3, 27, 33, 0.96));
+      border: 1px solid rgba(138, 196, 255, 0.1);
+      box-shadow: 0 18px 36px rgba(0,0,0,0.25);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(3, 22, 26, 1), rgba(8, 32, 35, 1));
+      image-rendering: pixelated;
+    }
+
+    /*
+      Canvas panels are intentionally scoped to the game surface, not the full page.
+      This prevents the start, pause, and death screens from stacking over each other.
+    */
+    .canvas-panel {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 18px 18px 22px;
+      background: linear-gradient(180deg, rgba(12, 36, 43, 0.88), rgba(15, 33, 40, 0.78));
+      border: 1px solid rgba(255, 215, 0, 0.18);
+      backdrop-filter: blur(4px);
+      z-index: 20;
+    }
+
+    .canvas-panel.hidden {
+      display: none;
+    }
+
+    .panel-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-header h2,
+    .panel-header h1 {
+      margin: 0;
+      line-height: 1.1;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .panel-body {
+      width: min(100%, 320px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      margin-top: 18px;
+    }
+
+    .panel-body .title {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .panel-body p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .panel-box {
+      width: 100%;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .panel-box label {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    #scoreboardList {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    #scoreboardList li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(12, 24, 32, 0.8);
+      border: 1px solid rgba(125, 211, 252, 0.07);
+      color: var(--muted);
+    }
+
+    #keybindList {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    #keybindList > div {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .mobile-controls {
+      display: none;
+      width: min(100%, 420px);
+      margin-top: 12px;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .mobile-controls.visible {
+      display: flex;
+    }
+
+    .mobile-pad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(58px, 74px));
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .mobile-btn {
+      min-width: 58px;
+      min-height: 58px;
+      border-radius: 14px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .mobile-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .small-text {
+      margin-top: 8px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.84rem;
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 10px 10px 24px;
+      }
+
+      .topbar {
+        left: 8px;
+        transform: none;
+        width: calc(100% - 16px);
+        top: 8px;
+      }
+
+      .game-shell {
+        width: min(92vw, 420px);
+        margin-top: 116px;
+      }
+
+      .mobile-controls {
+        display: flex;
+      }
+    }
   </style>
 </head>
 <body>
@@ -42,53 +371,105 @@
     <details class="top-dropdown" id="accountsDropdown">
       <summary>Accounts</summary>
       <div class="panel-content">
-        <select id="accountSelect" style="width:100%;margin-bottom:8px"></select>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <div class="field">
+          <select id="accountSelect"></select>
+        </div>
+        <div class="stack">
           <button id="switchAccountBtn">Switch</button>
           <button id="addAccountBtn">Add</button>
           <button id="renameAccountBtn">Rename</button>
           <button id="removeAccountBtn">Remove</button>
         </div>
-        <div style="font-weight:700;margin-top:8px">Current account</div>
-        <div id="currentAccountLabel">Guest</div>
+        <div class="field" style="margin-top:10px; margin-bottom:0;">
+          <label style="font-weight:700; color:var(--text);">Current account</label>
+          <div id="currentAccountLabel">Guest</div>
+        </div>
       </div>
     </details>
 
     <details class="top-dropdown" id="keybindsDropdown">
       <summary>Keybinds</summary>
       <div class="panel-content">
-        <select id="keybindProfileSelect">
-          <option value="default">Default</option>
-          <option value="profile1">Profile 1</option>
-          <option value="profile2">Profile 2</option>
-        </select>
-        <div id="keybindList" style="display:grid;gap:8px;margin-top:8px"></div>
+        <div class="field">
+          <select id="keybindProfileSelect">
+            <option value="default">Default</option>
+            <option value="profile1">Profile 1</option>
+            <option value="profile2">Profile 2</option>
+          </select>
+        </div>
+        <div id="keybindList"></div>
+      </div>
+    </details>
+
+    <details class="top-dropdown" id="optionsDropdown">
+      <summary>Options</summary>
+      <div class="panel-content">
+        <div class="field">
+          <label>Difficulty</label>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+            <option value="extreme">Extreme</option>
+            <option value="drunk">Drunk</option>
+          </select>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; color:var(--muted); margin-bottom:10px;">
+          <input id="autoReplayToggle" type="checkbox">
+          Auto replay
+        </label>
+        <div class="stack">
+          <button id="restartBtn">Restart</button>
+          <button id="quitBtn">Quit</button>
+        </div>
       </div>
     </details>
 
     <details class="top-dropdown" id="leaderboardsDropdown">
       <summary>Leaderboards</summary>
       <div class="panel-content">
-        <select id="leaderboardSelect">
-          <option value="overall">Overall</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-          <option value="extreme">Extreme</option>
-          <option value="drunk">Drunk</option>
-        </select>
-        <ul id="scoreboardList" style="margin-top:8px"></ul>
+        <div class="field">
+          <select id="leaderboardSelect">
+            <option value="overall">Overall</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+            <option value="extreme">Extreme</option>
+            <option value="drunk">Drunk</option>
+          </select>
+        </div>
+        <ul id="scoreboardList"></ul>
       </div>
     </details>
   </div>
 
-  <div class="app">
-    <main class="game-column">
-      <div class="hud">
-        <div id="score">Score: 0</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <label style="display:flex;align-items:center;gap:6px;color:#ddd">Difficulty:
-            <select id="difficulty">
+  <div class="game-shell">
+    <div id="score" class="score-badge">Score: 0</div>
+    <div class="game-wrap">
+      <canvas id="game" width="400" height="400"></canvas>
+
+      <div id="startScreen" class="canvas-panel">
+        <div class="panel-header">
+          <h1>Snake</h1>
+          <div class="panel-actions">
+            <button id="startBtn">Start</button>
+            <button id="closeStartBtn">Close</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <p>Press Start or use Arrow keys / WASD to begin.</p>
+        </div>
+      </div>
+
+      <div id="pauseOverlay" class="canvas-panel hidden">
+        <div class="panel-header">
+          <h2>Paused</h2>
+        </div>
+        <div class="panel-box">
+          <div id="pauseScore">Score: 0</div>
+          <label>
+            Difficulty:
+            <select id="pauseDifficulty">
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
@@ -96,59 +477,61 @@
               <option value="drunk">Drunk</option>
             </select>
           </label>
-          <label style="display:flex;align-items:center;gap:6px;color:#ddd"><input id="autoReplayToggle" type="checkbox">Auto replay</label>
-        </div>
-        <div class="controls">
-          <button id="restartBtn">Restart</button>
-          <button id="quitBtn">Quit</button>
-        </div>
-      </div>
-
-      <div class="game-wrap">
-        <canvas id="game" width="400" height="400"></canvas>
-
-        <div id="pauseOverlay" class="overlay hidden">
-          <h2 style="margin:0">Paused</h2>
-          <div id="pauseScore" style="color:#ddd">Score: 0</div>
-          <label style="display:flex;align-items:center;gap:6px;color:#ddd">Difficulty:
-            <select id="pauseDifficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="extreme">Extreme</option><option value="drunk">Drunk</option></select>
+          <label style="justify-content:center;">
+            <input id="pauseAutoReplay" type="checkbox">
+            Auto replay
           </label>
-          <label style="display:flex;align-items:center;gap:6px;color:#ddd"><input id="pauseAutoReplay" type="checkbox">Auto replay</label>
-          <div style="display:flex;gap:8px"><button id="pauseRestartBtn">Restart</button><button id="resumeBtn">Resume</button></div>
+          <div class="stack">
+            <button id="pauseRestartBtn">Restart</button>
+            <button id="resumeBtn">Resume</button>
+          </div>
         </div>
+      </div>
 
-        <div id="deathOverlay" class="overlay hidden">
-          <h2 style="margin:0">You Died</h2>
-          <div id="deathScore" style="color:#ddd">Score: 0</div>
-          <label style="display:flex;align-items:center;gap:6px;color:#ddd">Difficulty:
-            <select id="deathDifficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="extreme">Extreme</option><option value="drunk">Drunk</option></select>
+      <div id="deathOverlay" class="canvas-panel hidden">
+        <div class="panel-header">
+          <h2>You Died</h2>
+        </div>
+        <div class="panel-box">
+          <div id="deathScore">Score: 0</div>
+          <label>
+            Difficulty:
+            <select id="deathDifficulty">
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+              <option value="extreme">Extreme</option>
+              <option value="drunk">Drunk</option>
+            </select>
           </label>
-          <label style="display:flex;align-items:center;gap:6px;color:#ddd"><input id="deathAutoReplay" type="checkbox">Auto replay</label>
-          <div style="display:flex;gap:8px"><button id="deathRestartBtn">Restart</button><button id="deathQuitBtn">Quit</button></div>
+          <label style="justify-content:center;">
+            <input id="deathAutoReplay" type="checkbox">
+            Auto replay
+          </label>
+          <div class="stack">
+            <button id="deathRestartBtn">Restart</button>
+            <button id="deathQuitBtn">Quit</button>
+          </div>
         </div>
       </div>
-
-      <div id="mobileControls" class="mobile-controls" aria-label="Touch controls">
-        <div class="mobile-pad">
-          <button class="mobile-btn" data-direction="up" aria-label="Move up">▲</button>
-          <button class="mobile-btn" data-direction="left" aria-label="Move left">◀</button>
-          <button class="mobile-btn" data-direction="right" aria-label="Move right">▶</button>
-          <button class="mobile-btn" data-direction="down" aria-label="Move down">▼</button>
-        </div>
-        <div class="mobile-actions"><button class="mobile-btn" data-action="pause">Pause</button><button class="mobile-btn" data-action="restart">Restart</button></div>
-      </div>
-
-      <div class="small-text">Move with Arrow Keys or WASD. Press P to pause, R to restart.</div>
-    </main>
+    </div>
   </div>
 
-  <div id="startScreen" class="overlay">
-    <h1 style="margin:0;font-size:clamp(2.1rem,5vw,3.25rem)">Snake</h1>
-    <div style="color:#ddd;text-align:center;max-width:320px">Press Start or Arrow/WASD keys to begin</div>
-    <div style="display:flex;gap:8px;margin-top:8px"><button id="startBtn">Start</button><button id="closeStartBtn">Close</button></div>
+  <div id="mobileControls" class="mobile-controls" aria-label="Touch controls">
+    <div class="mobile-pad">
+      <button class="mobile-btn" data-direction="up" aria-label="Move up">▲</button>
+      <button class="mobile-btn" data-direction="left" aria-label="Move left">◀</button>
+      <button class="mobile-btn" data-direction="right" aria-label="Move right">▶</button>
+      <button class="mobile-btn" data-direction="down" aria-label="Move down">▼</button>
+    </div>
+    <div class="mobile-actions">
+      <button class="mobile-btn" data-action="pause" aria-label="Pause">Pause</button>
+      <button class="mobile-btn" data-action="restart" aria-label="Restart">Restart</button>
+    </div>
   </div>
 
-  <div style="text-align:center;margin-top:12px;color:var(--muted)">Ahmed and Bonnie Corp</div>
+  <div class="small-text">Move with Arrow Keys or WASD. Press P to pause, R to restart.</div>
+
   <script src="test.js"></script>
 </body>
 </html>

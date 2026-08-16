@@ -1,3 +1,7 @@
+// -----------------------------------------------------------------------------
+// DOM references and game constants.
+// These values point to the UI elements used by the game and the board sizing.
+// -----------------------------------------------------------------------------
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
@@ -31,6 +35,10 @@ const defaultKeybinds = {
   restart: 'r'
 };
 
+// -----------------------------------------------------------------------------
+// Core state.
+// This object tracks every menu, difficulty, score, snake, and special apple state.
+// -----------------------------------------------------------------------------
 const state = {
   mode: 'easy',
   key: '',
@@ -69,9 +77,13 @@ const state = {
   deathOverlayVisible: false,
   goldenAppleTimer: 0,
   screenFillUntil: 0,
+  goldenAppleChance: 0.1,
   lastGamepadTick: 0
 };
 
+// -----------------------------------------------------------------------------
+// Storage helpers.
+// -----------------------------------------------------------------------------
 function defaultStore() {
   return {
     key: 'snake-demo-key',
@@ -168,6 +180,22 @@ function serialiseStore() {
   });
 }
 
+// -----------------------------------------------------------------------------
+// Screen and state management.
+// Functions to control the game screens, pause, resume, and reset the game.
+// -----------------------------------------------------------------------------
+function hideAllMenus() {
+  const panels = [
+    document.getElementById('startScreen'),
+    pauseOverlay,
+    deathOverlay
+  ];
+
+  panels.forEach((panel) => {
+    if (panel) panel.classList.add('hidden');
+  });
+}
+
 function setScreen(nextScreen) {
   const overlays = {
     start: document.getElementById('startScreen'),
@@ -175,13 +203,12 @@ function setScreen(nextScreen) {
     dead: deathOverlay
   };
 
-  // Hide all overlays first to guarantee only one visible at a time
-  Object.values(overlays).forEach((el) => { if (el && !el.classList.contains('hidden')) el.classList.add('hidden'); });
-
+  // The menu stack should never have more than one panel active.  This guarantees
+  // the start, pause, and death overlays cannot layer on top of each other.
+  hideAllMenus();
   state.screen = nextScreen;
 
   if (nextScreen === 'playing' || !overlays[nextScreen]) {
-    // show no overlay
     state.deathOverlayVisible = false;
     return;
   }
@@ -195,6 +222,7 @@ function quitGame() {
   // stop running, clear interval and canvas, reset relevant state
   state.running = false;
   state.paused = false;
+  state.goldenAppleChance = 0.1;
   if (state.intervalId) {
     clearInterval(state.intervalId);
     state.intervalId = null;
@@ -228,7 +256,9 @@ function setCurrentAccount(name) {
 }
 
 function updateHud() {
-  scoreEl.textContent = `Score: ${Math.floor(state.score)}`;
+  if (scoreEl) {
+    scoreEl.textContent = `Score: ${Math.floor(state.score)}`;
+  }
 }
 
 function populateAccountSelect() {
@@ -256,7 +286,24 @@ function renderLeaderboards() {
 
   entries.slice(0, 5).forEach((entry, index) => {
     const li = document.createElement('li');
-    li.innerHTML = `<span>#${index + 1} ${entry.name}</span><span>${Math.floor(entry.score)}</span>`;
+    const rank = index + 1;
+
+    // Top three leaderboard entries get a distinct color treatment for readability.
+    if (rank === 1) {
+      li.style.background = 'rgba(255, 215, 0, 0.18)';
+      li.style.border = '1px solid rgba(255, 215, 0, 0.45)';
+      li.style.color = '#ffe083';
+    } else if (rank === 2) {
+      li.style.background = 'rgba(180, 180, 180, 0.16)';
+      li.style.border = '1px solid rgba(180, 180, 180, 0.35)';
+      li.style.color = '#dfe3e8';
+    } else if (rank === 3) {
+      li.style.background = 'rgba(150, 94, 46, 0.18)';
+      li.style.border = '1px solid rgba(150, 94, 46, 0.42)';
+      li.style.color = '#e9b983';
+    }
+
+    li.innerHTML = `<span>#${rank} ${entry.name}</span><span>${Math.floor(entry.score)}</span>`;
     leaderboardList.appendChild(li);
   });
 }
@@ -375,6 +422,11 @@ function computeTick() {
   return tick;
 }
 
+// -----------------------------------------------------------------------------
+// Game logic functions.
+// These functions handle the core mechanics of the game, including snake movement,
+// collision detection, food placement, and game state updates.
+// -----------------------------------------------------------------------------
 function isTileBlocked(x, y) {
   return state.snake.some(seg => seg.x === x && seg.y === y);
 }
@@ -400,7 +452,8 @@ function placeFood() {
   const freeTile = randomOpenTile();
   if (!freeTile) return;
 
-  const goldenChance = 0.1;
+  // The golden apple chance shrinks each time a golden apple is collected.
+  const goldenChance = state.goldenAppleChance;
   const shouldGolden = Math.random() < goldenChance && state.food?.type !== 'gold';
 
   state.food = {
@@ -509,6 +562,11 @@ function resumeGame() {
   state.intervalId = setInterval(gameTick, computeTick());
 }
 
+// -----------------------------------------------------------------------------
+// Input handling and keybind management.
+// Functions to handle keyboard, gamepad, and mobile input, as well as keybind
+// profile loading and saving.
+// -----------------------------------------------------------------------------
 function canTurnTo(newDirection) {
   return !(newDirection.x === -state.direction.x && newDirection.y === -state.direction.y)
     && !(newDirection.x === -state.nextDirection.x && newDirection.y === -state.nextDirection.y);
@@ -579,9 +637,12 @@ function handleKeyInput(event) {
 }
 
 function triggerGoldenAppleEffect() {
+  // Golden apple pickup triggers a short buff timer.
+  // While the buff is active, every apple is worth 1 point.
   state.screenFillUntil = Date.now() + 5000;
   state.food = null;
-  state.score += 5;
+  state.score += 1;
+  state.goldenAppleChance = Math.max(0.02, state.goldenAppleChance * 0.8);
   updateHud();
 }
 
@@ -632,10 +693,10 @@ function maybeGameOver() {
   }
 
   if (state.mode === 'easy') addScoreToBoard('easy', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
-  if (state.mode === 'medium') addScoreToBoard('medium', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
-  if (state.mode === 'hard') addScoreToBoard('hard', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
+  if (state.mode === 'medium' ) addScoreToBoard('medium', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
+  if (state.mode === 'hard'  ) addScoreToBoard('hard', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
   if (state.mode === 'extreme') addScoreToBoard('extreme', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
-  if (state.mode === 'drunk') addScoreToBoard('drunk', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
+  if (state.mode === 'drunk' ) addScoreToBoard('drunk', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
   addScoreToBoard('overall', state.accounts[state.currentAccount]?.name || 'Guest', state.score);
 
   saveStore();
@@ -686,7 +747,10 @@ function updateGame() {
       return;
     }
 
+    // Golden buff mode makes every normal apple count as a single point.
+    const buffActive = state.screenFillUntil > Date.now();
     const applePoints = (() => {
+      if (buffActive) return 1;
       if (state.mode === 'extreme') {
         return (Math.floor(state.score) < 5) ? 10 : 0.5;
       }
@@ -708,6 +772,11 @@ function updateGame() {
   state.snake.pop();
 }
 
+// -----------------------------------------------------------------------------
+// Rendering and drawing functions.
+// These functions handle the visual aspects of the game, including drawing the
+// snake, food, and game board.
+// -----------------------------------------------------------------------------
 function drawCell(x, y, color) {
   ctx.fillStyle = color;
   ctx.fillRect(x * gridSize + 1, y * gridSize + 1, gridSize - 2, gridSize - 2);
@@ -774,6 +843,11 @@ function draw() {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Main game loop and initialization.
+// The game loop updates the game state and renders the game at a set interval.
+// Initialization sets up event listeners, loads saved data, and prepares the game.
+// -----------------------------------------------------------------------------
 function gameTick() {
   if (!state.running || state.paused) return;
   updateGame();
@@ -1011,6 +1085,10 @@ function setKeybind(action, key) {
   saveKeybindProfiles();
 }
 
+// -----------------------------------------------------------------------------
+// Mobile and gamepad handling.
+// Functions to manage mobile directional controls and gamepad input.
+// -----------------------------------------------------------------------------
 function handleMobileDirection(directionName) {
   const map = {
     up: { x: 0, y: -1 },
@@ -1066,6 +1144,10 @@ function handleGamepad() {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Initialization and event handling.
+// The init function loads saved data, sets up event listeners, and starts the game.
+// -----------------------------------------------------------------------------
 async function init() {
   await loadStore();
   ensureGuestAccount();
