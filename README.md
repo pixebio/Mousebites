@@ -51,7 +51,6 @@ We keep things super simple so you can focus on being cute and getting huge!
 
 Built with love, logic, and lots of caffeine:
 *   **HTML5** 🏗️ - For that solid, semantic structure.
-*   **CSS3** 🎨 - For the absolute *look* and aesthetic styling.
 *   **JavaScript (Vanilla)** 🪄 - Making the magic happen without any bloated frameworks!
 
 ---
@@ -92,6 +91,6 @@ Want to make this project even cuter? Pull requests are absolutely welcome!
 
 *Made with 💖 and lots of 🐍 by Pixebio + Piksie(aka Pika).*
 
-```
-DISCLAIMER: SOME SNAKES *MIGHT* HAVE BEEN HARMED DURING THE DEVELOPMENT OF THIS GAME
-```
+
+*DISCLAIMER: SOME SNAKES **MIGHT** HAVE BEEN HARMED DURING THE DEVELOPMENT OF THIS GAME*
+
