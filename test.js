@@ -755,11 +755,14 @@ function draw() {
   }
 
   for (let i = 1; i < state.snake.length; i += 1) {
-    drawCell(state.snake[i].x, state.snake[i].y, '#6ee7a7');
+    const seg = state.snake[i];
+    const color = (i % 2 === 1) ? '#32a852' : '#05611d';
+    drawCell(seg.x, seg.y, color);
   }
 
   if (state.snake.length > 0) {
-    drawCell(state.snake[0].x, state.snake[0].y, '#0a5a3d');
+    // head color
+    drawCell(state.snake[0].x, state.snake[0].y, '#fcba03');
   }
 
   if (state.food && !(state.screenFillUntil > Date.now())) {
