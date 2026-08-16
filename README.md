@@ -40,9 +40,9 @@ We keep things super simple so you can focus on being cute and getting huge!
 
 ## 🌱 How to Play 🌱
 
-1.  **Start the Game:** Launch the game and pick your difficulty. 
+1.  **Start the Game:** Launch the game via the following website: http://pixebio.github.io/Mousebites/ or locally and pick your difficulty. 
 2.  **Munch the Yummies:** Guide your snake to eat the little snacks on the grid. Every time you eat, you grow! 🍎
-3.  **Don't Bonk!:** Watch out for the walls, and *definitely* don't bite your own tail! If you crash, the "You Died" screen will pop up to show your final score. 🥺
+3.  **Don't Bonk!:** Watch out for the body, and *definitely* don't bite your own tail! If you crash, the "You Died" screen will pop up to show your final score. 🥺
 4.  **Try Again!:** Hit that adorable little *Restart* button (or let Auto Replay do its magic) and beat your last score!
 
 ---
@@ -61,13 +61,13 @@ Want to run this cozy little game on your own machine? It's super easy!
 
 1. **Clone the Repo:**
    ```bash
-   git clone [https://github.com/your-username/aesthetic-snake-game.git](https://github.com/your-username/aesthetic-snake-game.git)
+   git clone [https://github.com/pixebio/Mousebites.git]
 
 
 
 2. **Open the Folder:**
 ```bash
-cd aesthetic-snake-game
+cd Mousebites
 
 ```
 
