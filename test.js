@@ -169,14 +169,45 @@ function serialiseStore() {
 }
 
 function setScreen(nextScreen) {
+  const overlays = {
+    start: document.getElementById('startScreen'),
+    paused: pauseOverlay,
+    dead: deathOverlay
+  };
+
+  // Hide all overlays first to guarantee only one visible at a time
+  Object.values(overlays).forEach((el) => { if (el && !el.classList.contains('hidden')) el.classList.add('hidden'); });
+
   state.screen = nextScreen;
-  const startVisible = nextScreen === 'start';
-  const pauseVisible = nextScreen === 'paused';
-  const deathVisible = nextScreen === 'dead';
-  document.getElementById('startScreen').classList.toggle('hidden', !startVisible);
-  pauseOverlay.classList.toggle('hidden', !pauseVisible);
-  deathOverlay.classList.toggle('hidden', !deathVisible);
-  state.deathOverlayVisible = deathVisible;
+
+  if (nextScreen === 'playing' || !overlays[nextScreen]) {
+    // show no overlay
+    state.deathOverlayVisible = false;
+    return;
+  }
+
+  const showEl = overlays[nextScreen];
+  if (showEl) showEl.classList.remove('hidden');
+  state.deathOverlayVisible = (nextScreen === 'dead');
+}
+
+function quitGame() {
+  // stop running, clear interval and canvas, reset relevant state
+  state.running = false;
+  state.paused = false;
+  if (state.intervalId) {
+    clearInterval(state.intervalId);
+    state.intervalId = null;
+  }
+  state.snake = [];
+  state.food = null;
+  state.score = 0;
+  state.appleCount = 0;
+  state.screenFillUntil = 0;
+  state.goldenAppleTimer = 0;
+  updateHud();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setScreen('start');
 }
 
 function syncDifficultyLock() {
@@ -1045,6 +1076,16 @@ async function init() {
     setScreen('playing');
   });
 
+  const quitBtn = document.getElementById('quitBtn');
+  if (quitBtn) quitBtn.addEventListener('click', () => { quitGame(); });
+
+  const closeStartBtn = document.getElementById('closeStartBtn');
+  if (closeStartBtn) closeStartBtn.addEventListener('click', () => {
+    const start = document.getElementById('startScreen');
+    if (start) start.classList.add('hidden');
+    state.screen = 'none';
+  });
+
   document.getElementById('restartBtn').addEventListener('click', () => {
     resetGame();
     setScreen('playing');
@@ -1059,6 +1100,9 @@ async function init() {
     hideDeathOverlay();
     resetGame();
   });
+
+  const deathQuitBtn = document.getElementById('deathQuitBtn');
+  if (deathQuitBtn) deathQuitBtn.addEventListener('click', () => { quitGame(); });
 
   document.getElementById('resumeBtn').addEventListener('click', () => {
     resumeGame();
@@ -1156,6 +1200,18 @@ async function init() {
   applyKeybindProfile('default');
   renderKeybinds();
   setScreen('start');
+  // Safety loop: ensure only one overlay visible at any time
+  setInterval(() => {
+    const overlays = [document.getElementById('startScreen'), pauseOverlay, deathOverlay];
+    const visible = overlays.filter(el => el && !el.classList.contains('hidden'));
+    if (visible.length > 1) {
+      // Hide all and then show the intended screen from state
+      overlays.forEach(el => { if (el) el.classList.add('hidden'); });
+      if (state.screen === 'start') document.getElementById('startScreen')?.classList.remove('hidden');
+      if (state.screen === 'paused') pauseOverlay?.classList.remove('hidden');
+      if (state.screen === 'dead') deathOverlay?.classList.remove('hidden');
+    }
+  }, 350);
   draw();
 }
 
