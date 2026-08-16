@@ -1,5 +1,4 @@
-# Mousebites
-# 🐍✨ Ssssuper Cute Snake Game ✨🐍
+# 🐍✨ Mousebites The Ssssuper Cute Snake Game ✨🐍
 
 *(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ Welcome to the coziest, most aesthetic little snake game on the interwebs! ✧ﾟ･: *ヽ(◕ヮ◕ヽ)*
 
@@ -94,5 +93,5 @@ Want to make this project even cuter? Pull requests are absolutely welcome!
 *Made with 💖 and lots of 🐍 by Pixebio + Piksie(aka Pika).*
 
 ```
-
+DISCLAIMER: SOME SNAKES *MIGHT* HAVE BEEN HARMED DURING THE DEVELOPMENT OF THIS GAME
 ```
