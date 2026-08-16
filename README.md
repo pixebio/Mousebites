@@ -1,5 +1,4 @@
 # Mousebites
-No snakes were harmed in the making of this repo
 # 🐍✨ Ssssuper Cute Snake Game ✨🐍
 
 *(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ Welcome to the coziest, most aesthetic little snake game on the interwebs! ✧ﾟ･: *ヽ(◕ヮ◕ヽ)*
@@ -65,3 +64,35 @@ Want to run this cozy little game on your own machine? It's super easy!
 1. **Clone the Repo:**
    ```bash
    git clone [https://github.com/your-username/aesthetic-snake-game.git](https://github.com/your-username/aesthetic-snake-game.git)
+
+
+
+2. **Open the Folder:**
+```bash
+cd aesthetic-snake-game
+
+```
+
+
+3. **Launch with Live Server:**
+Pop open your favorite code editor (like VS Code), right-click `index.html`, and select **"Open with Live Server"**. (You'll see it running smoothly at `http://127.0.0.1:5500/index.html` just like in our screenshots! ✨)
+
+---
+
+## 💌 Contributing 💌
+
+Want to make this project even cuter? Pull requests are absolutely welcome!
+
+1. Fork the project 🍴
+2. Create your Feature Branch (`git checkout -b feature/CuteNewThing`) 🌸
+3. Commit your Changes (`git commit -m 'Add some CuteNewThing'`) 💖
+4. Push to the Branch (`git push origin feature/CuteNewThing`) 🚀
+5. Open a Pull Request! 💌
+
+---
+
+*Made with 💖 and lots of 🐍 by Pixebio + Piksie(aka Pika).*
+
+```
+
+```
