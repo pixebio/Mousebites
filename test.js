@@ -20,6 +20,7 @@ const pauseAutoReplay = document.getElementById('pauseAutoReplay');
 const deathAutoReplay = document.getElementById('deathAutoReplay');
 const pauseScore = document.getElementById('pauseScore');
 const deathScore = document.getElementById('deathScore');
+const mobileControls = document.getElementById('mobileControls');
 
 const defaultKeybinds = {
   up: 'ArrowUp',
@@ -34,6 +35,7 @@ const state = {
   mode: 'easy',
   key: '',
   accounts: {},
+  deletedAccounts: {},
   currentAccount: 'guest',
   keybindProfile: 'default',
   keybindProfiles: {
@@ -54,6 +56,7 @@ const state = {
   score: 0,
   running: false,
   paused: false,
+  screen: 'start',
   snake: [],
   food: null,
   direction: { x: 1, y: 0 },
@@ -63,7 +66,10 @@ const state = {
   appleSpawnDelay: 0,
   appleCount: 0,
   autoReplay: false,
-  deathOverlayVisible: false
+  deathOverlayVisible: false,
+  goldenAppleTimer: 0,
+  screenFillUntil: 0,
+  lastGamepadTick: 0
 };
 
 function defaultStore() {
@@ -72,6 +78,7 @@ function defaultStore() {
     accounts: {
       guest: { name: 'Guest', password: '', guest: true, highScore: 0 }
     },
+    deletedAccounts: {},
     leaderboards: {
       easy: [],
       medium: [],
@@ -135,10 +142,16 @@ function parseStore(raw) {
       return {
         key,
         accounts: obj.accounts || store.accounts,
+        deletedAccounts: obj.deletedAccounts || {},
         leaderboards: obj.leaderboards || store.leaderboards
       };
     }
-    return { key, accounts: parsed.accounts || store.accounts, leaderboards: parsed.leaderboards || store.leaderboards };
+    return {
+      key,
+      accounts: parsed.accounts || store.accounts,
+      deletedAccounts: parsed.deletedAccounts || {},
+      leaderboards: parsed.leaderboards || store.leaderboards
+    };
   } catch (err) {
     return defaultStore();
   }
@@ -147,18 +160,34 @@ function parseStore(raw) {
 function serialiseStore() {
   return JSON.stringify({
     key: state.key,
-    data: encryptText(JSON.stringify({ accounts: state.accounts, leaderboards: state.leaderboards }), state.key)
+    data: encryptText(JSON.stringify({
+      accounts: state.accounts,
+      deletedAccounts: state.deletedAccounts,
+      leaderboards: state.leaderboards
+    }), state.key)
   });
 }
 
+function setScreen(nextScreen) {
+  state.screen = nextScreen;
+  const startVisible = nextScreen === 'start';
+  const pauseVisible = nextScreen === 'paused';
+  const deathVisible = nextScreen === 'dead';
+  document.getElementById('startScreen').classList.toggle('hidden', !startVisible);
+  pauseOverlay.classList.toggle('hidden', !pauseVisible);
+  deathOverlay.classList.toggle('hidden', !deathVisible);
+  state.deathOverlayVisible = deathVisible;
+}
+
 function syncDifficultyLock() {
-  diffSelect.disabled = state.running;
+  diffSelect.disabled = state.running && state.screen !== 'dead';
   pauseDifficulty.value = state.mode;
   deathDifficulty.value = state.mode;
   pauseScore.textContent = `Score: ${Math.floor(state.score)}`;
   deathScore.textContent = `Score: ${Math.floor(state.score)}`;
   pauseAutoReplay.checked = state.autoReplay;
   deathAutoReplay.checked = state.autoReplay;
+  autoReplayToggle.checked = state.autoReplay;
 }
 
 function setCurrentAccount(name) {
@@ -239,6 +268,7 @@ async function loadStore() {
       const store = parseStore(local);
       state.key = store.key;
       state.accounts = store.accounts;
+      state.deletedAccounts = store.deletedAccounts || {};
       state.leaderboards = store.leaderboards;
       return;
     }
@@ -249,17 +279,20 @@ async function loadStore() {
       const store = parseStore(text);
       state.key = store.key;
       state.accounts = store.accounts;
+      state.deletedAccounts = store.deletedAccounts || {};
       state.leaderboards = store.leaderboards;
     } else {
       const store = defaultStore();
       state.key = store.key;
       state.accounts = store.accounts;
+      state.deletedAccounts = store.deletedAccounts;
       state.leaderboards = store.leaderboards;
     }
   } catch (err) {
     const store = defaultStore();
     state.key = store.key;
     state.accounts = store.accounts;
+    state.deletedAccounts = store.deletedAccounts;
     state.leaderboards = store.leaderboards;
   }
 }
@@ -311,15 +344,45 @@ function computeTick() {
   return tick;
 }
 
+function isTileBlocked(x, y) {
+  return state.snake.some(seg => seg.x === x && seg.y === y);
+}
+
+function randomOpenTile() {
+  const cols = canvas.width / gridSize;
+  const rows = canvas.height / gridSize;
+  const options = [];
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      if (!isTileBlocked(x, y)) {
+        options.push({ x, y });
+      }
+    }
+  }
+  if (!options.length) return null;
+  return options[Math.floor(Math.random() * options.length)];
+}
+
 function placeFood() {
-  let tries = 0;
-  do {
-    state.food = {
-      x: Math.floor(Math.random() * (canvas.width / gridSize)),
-      y: Math.floor(Math.random() * (canvas.height / gridSize))
-    };
-    tries += 1;
-  } while (tries < 200 && state.snake.some(seg => seg.x === state.food.x && seg.y === state.food.y));
+  if (state.screenFillUntil > Date.now()) return;
+
+  const freeTile = randomOpenTile();
+  if (!freeTile) return;
+
+  const goldenChance = 0.1;
+  const shouldGolden = Math.random() < goldenChance && state.food?.type !== 'gold';
+
+  state.food = {
+    x: freeTile.x,
+    y: freeTile.y,
+    type: shouldGolden ? 'gold' : 'normal'
+  };
+
+  if (shouldGolden) {
+    state.goldenAppleTimer = Date.now() + 3000;
+  } else {
+    state.goldenAppleTimer = 0;
+  }
 
   if (state.mode === 'extreme') {
     state.appleVisibleUntil = Date.now() + 180;
@@ -327,11 +390,15 @@ function placeFood() {
   }
 }
 
-function hideAllOverlays() {
-  document.getElementById('startScreen').classList.add('hidden');
-  document.getElementById('pauseOverlay').classList.add('hidden');
-  document.getElementById('deathOverlay').classList.add('hidden');
-  state.deathOverlayVisible = false;
+function updateSpecialApples() {
+  if (state.food && state.food.type === 'gold' && Date.now() >= state.goldenAppleTimer) {
+    state.food.type = 'normal';
+    state.goldenAppleTimer = 0;
+  }
+
+  if (state.screenFillUntil && Date.now() > state.screenFillUntil) {
+    state.screenFillUntil = 0;
+  }
 }
 
 function resetGame() {
@@ -340,13 +407,16 @@ function resetGame() {
   state.score = 0;
   state.running = true;
   state.paused = false;
+  state.screen = 'playing';
   state.snake = [{ x: Math.floor(cols / 2), y: Math.floor(rows / 2) }];
   state.direction = { x: 1, y: 0 };
   state.nextDirection = { x: 1, y: 0 };
   state.appleVisibleUntil = 0;
   state.appleCount = 0;
-  hideAllOverlays();
-
+  state.screenFillUntil = 0;
+  state.goldenAppleTimer = 0;
+  state.food = null;
+  setScreen('playing');
   placeFood();
   updateHud();
   syncDifficultyLock();
@@ -355,11 +425,11 @@ function resetGame() {
 }
 
 function showStart() {
-  document.getElementById('startScreen').classList.remove('hidden');
+  setScreen('start');
 }
 
 function hideStart() {
-  document.getElementById('startScreen').classList.add('hidden');
+  setScreen('playing');
 }
 
 function showDeathOverlay() {
@@ -369,20 +439,31 @@ function showDeathOverlay() {
   deathScreen.classList.remove('hidden');
   state.deathOverlayVisible = true;
   deathDifficulty.value = state.mode;
+  setScreen('dead');
 }
 
 function hideDeathOverlay() {
-  document.getElementById('deathOverlay').classList.add('hidden');
+  setScreen('playing');
   state.deathOverlayVisible = false;
 }
 
+function togglePause() {
+  if (!state.running) return;
+  if (state.paused) {
+    resumeGame();
+  } else {
+    pauseGame();
+  }
+}
+
 function pauseGame() {
-  if (!state.running || state.paused || state.deathOverlayVisible) return;
+  if (!state.running || state.paused || state.screen === 'dead') return;
   state.paused = true;
+  state.screen = 'paused';
   pauseScore.textContent = `Score: ${Math.floor(state.score)}`;
   pauseDifficulty.value = state.mode;
   pauseAutoReplay.checked = state.autoReplay;
-  pauseOverlay.classList.remove('hidden');
+  setScreen('paused');
   if (state.intervalId) {
     clearInterval(state.intervalId);
     state.intervalId = null;
@@ -392,13 +473,26 @@ function pauseGame() {
 function resumeGame() {
   if (!state.running || !state.paused) return;
   state.paused = false;
-  pauseOverlay.classList.add('hidden');
+  state.screen = 'playing';
+  setScreen('playing');
   state.intervalId = setInterval(gameTick, computeTick());
 }
 
 function canTurnTo(newDirection) {
   return !(newDirection.x === -state.direction.x && newDirection.y === -state.direction.y)
     && !(newDirection.x === -state.nextDirection.x && newDirection.y === -state.nextDirection.y);
+}
+
+function applyDirectionVector(next) {
+  if (!next || !state.running) return;
+  if (state.screen === 'paused' || state.screen === 'dead') return;
+  if (next.x === -state.direction.x && next.y === -state.direction.y) return;
+  if (next.x === -state.nextDirection.x && next.y === -state.nextDirection.y) return;
+  if (state.screen === 'start') {
+    resetGame();
+    setScreen('playing');
+  }
+  state.nextDirection = next;
 }
 
 function handleKeyInput(event) {
@@ -412,28 +506,26 @@ function handleKeyInput(event) {
   }
 
   const startKeys = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'];
-  const startScreen = document.getElementById('startScreen');
-  if (startScreen && !startScreen.classList.contains('hidden') && startKeys.includes(key)) {
+  if (document.getElementById('startScreen') && !document.getElementById('startScreen').classList.contains('hidden') && startKeys.includes(key)) {
     resetGame();
-    hideStart();
+    setScreen('playing');
     return;
   }
 
   if (key === normalizeKey(state.keybinds.pause)) {
-    if (!state.running) return;
-    if (state.paused) resumeGame();
-    else pauseGame();
+    event.preventDefault();
+    togglePause();
     return;
   }
 
   if (key === normalizeKey(state.keybinds.restart)) {
+    event.preventDefault();
     resetGame();
-    hideAllOverlays();
-    hideStart();
+    setScreen('playing');
     return;
   }
 
-  if (event.key === 'Escape' && state.paused) {
+  if (event.key === 'Escape' && state.screen === 'paused') {
     resumeGame();
     return;
   }
@@ -444,7 +536,6 @@ function handleKeyInput(event) {
   const right = key === normalizeKey(state.keybinds.right);
 
   if (!(up || down || left || right)) return;
-
   event.preventDefault();
 
   let next = null;
@@ -453,9 +544,14 @@ function handleKeyInput(event) {
   else if (left) next = { x: -1, y: 0 };
   else if (right) next = { x: 1, y: 0 };
 
-  if (next && canTurnTo(next)) {
-    state.nextDirection = next;
-  }
+  applyDirectionVector(next);
+}
+
+function triggerGoldenAppleEffect() {
+  state.screenFillUntil = Date.now() + 5000;
+  state.food = null;
+  state.score += 5;
+  updateHud();
 }
 
 function maybeGameOver() {
@@ -517,14 +613,14 @@ function maybeGameOver() {
   syncDifficultyLock();
 
   if (state.autoReplay) {
+    state.screen = 'paused';
+    setScreen('paused');
     pauseScore.textContent = `Score: ${Math.floor(state.score)}`;
     pauseDifficulty.value = state.mode;
     pauseAutoReplay.checked = state.autoReplay;
-    pauseOverlay.classList.remove('hidden');
     setTimeout(() => {
-      pauseOverlay.classList.add('hidden');
+      setScreen('playing');
       resetGame();
-      hideAllOverlays();
     }, 900);
     return;
   }
@@ -535,6 +631,7 @@ function maybeGameOver() {
 function updateGame() {
   if (!state.running || state.paused) return;
 
+  updateSpecialApples();
   state.direction = state.nextDirection;
   const head = {
     x: state.snake[0].x + state.direction.x,
@@ -552,6 +649,12 @@ function updateGame() {
   state.snake.unshift(head);
 
   if (state.food && head.x === state.food.x && head.y === state.food.y) {
+    const apple = state.food;
+    if (apple.type === 'gold') {
+      triggerGoldenAppleEffect();
+      return;
+    }
+
     const applePoints = (() => {
       if (state.mode === 'extreme') {
         return (Math.floor(state.score) < 5) ? 10 : 0.5;
@@ -564,10 +667,8 @@ function updateGame() {
     state.score += applePoints;
     state.appleCount += 1;
     updateHud();
-    if (state.mode === 'extreme') {
-      if (Math.floor(state.score) >= 5) {
-        state.nextDirection = { x: 1, y: 0 };
-      }
+    if (state.mode === 'extreme' && Math.floor(state.score) >= 5) {
+      state.nextDirection = { x: 1, y: 0 };
     }
     placeFood();
     return;
@@ -581,8 +682,31 @@ function drawCell(x, y, color) {
   ctx.fillRect(x * gridSize + 1, y * gridSize + 1, gridSize - 2, gridSize - 2);
 }
 
+function drawBoardBackground() {
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, '#071f29');
+  gradient.addColorStop(1, '#0d332f');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = 'rgba(125, 211, 252, 0.14)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= canvas.width; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= canvas.height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+}
+
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBoardBackground();
 
   if (state.mode === 'drunk') {
     const wobbleX = Math.sin(Date.now() / 180) * 3;
@@ -591,16 +715,24 @@ function draw() {
     ctx.translate(wobbleX, wobbleY);
   }
 
+  if (state.screenFillUntil > Date.now()) {
+    for (let y = 0; y < canvas.height / gridSize; y += 1) {
+      for (let x = 0; x < canvas.width / gridSize; x += 1) {
+        drawCell(x, y, '#ff6b6b');
+      }
+    }
+  }
+
   for (let i = 1; i < state.snake.length; i += 1) {
-    drawCell(state.snake[i].x, state.snake[i].y, '#00ff00');
+    drawCell(state.snake[i].x, state.snake[i].y, '#6ee7a7');
   }
 
   if (state.snake.length > 0) {
-    drawCell(state.snake[0].x, state.snake[0].y, '#007f00');
+    drawCell(state.snake[0].x, state.snake[0].y, '#0a5a3d');
   }
 
-  if (state.food && (state.mode !== 'extreme' || Date.now() < state.appleVisibleUntil)) {
-    drawCell(state.food.x, state.food.y, '#ff0000');
+  if (state.food && !(state.screenFillUntil > Date.now())) {
+    drawCell(state.food.x, state.food.y, state.food.type === 'gold' ? '#ffd166' : '#ff5d73');
   }
 
   if (state.mode === 'drunk') {
@@ -618,23 +750,50 @@ function setDifficulty(mode) {
   if (state.running) return;
   state.mode = mode;
   diffSelect.value = mode;
-  if (!state.running) {
-    if (state.intervalId) clearInterval(state.intervalId);
-    state.intervalId = setInterval(gameTick, computeTick());
-  }
+  pauseDifficulty.value = mode;
+  deathDifficulty.value = mode;
+  if (state.intervalId) clearInterval(state.intervalId);
+  state.intervalId = setInterval(gameTick, computeTick());
 }
 
 function addAccount() {
   const name = prompt('New account name:');
   if (!name || !name.trim()) return;
   const cleanName = name.trim();
-  const password = prompt(`Password for ${cleanName}:`);
-  if (password === null) return;
   const key = cleanName.toLowerCase();
+
   if (state.accounts[key]) {
     alert('Account already exists.');
     return;
   }
+
+  const deleted = state.deletedAccounts[key];
+  if (deleted) {
+    const restoreChoice = window.confirm(`A deleted account named "${cleanName}" exists. Restore it?`);
+    if (restoreChoice) {
+      const oldPassword = prompt(`Enter the old password for ${cleanName}:`);
+      if (oldPassword === null) return;
+      if (oldPassword !== deleted.password) {
+        alert('Incorrect password for the deleted account.');
+        return;
+      }
+      state.accounts[key] = {
+        name: deleted.name || cleanName,
+        password: deleted.password || '',
+        guest: !!deleted.guest,
+        highScore: Number.isFinite(deleted.highScore) ? deleted.highScore : 0
+      };
+      delete state.deletedAccounts[key];
+      state.currentAccount = key;
+      populateAccountSelect();
+      setCurrentAccount(key);
+      saveStore();
+      return;
+    }
+  }
+
+  const password = prompt(`Password for ${cleanName}:`);
+  if (password === null) return;
 
   state.accounts[key] = {
     name: cleanName,
@@ -660,15 +819,63 @@ function removeAccount() {
     return;
   }
 
-  const confirmDelete = confirm(`Remove account ${state.accounts[selected].name}?`);
+  const account = state.accounts[selected];
+  if (!account) return;
+
+  const typedPassword = prompt(`Type the password for ${account.name} to remove the account:`);
+  if (typedPassword === null) return;
+  if (typedPassword !== account.password) {
+    alert('Incorrect password.');
+    return;
+  }
+
+  const confirmDelete = confirm(`Remove account ${account.name}?`);
   if (!confirmDelete) return;
 
+  state.deletedAccounts[selected] = {
+    ...account,
+    deletedAt: Date.now()
+  };
   delete state.accounts[selected];
   if (state.currentAccount === selected) {
     state.currentAccount = 'guest';
   }
   populateAccountSelect();
   setCurrentAccount(state.currentAccount);
+  saveStore();
+}
+
+function renameAccount() {
+  const selected = accountSelect.value || state.currentAccount;
+  if (!selected || selected === 'guest') {
+    alert('The guest account cannot be renamed.');
+    return;
+  }
+
+  const account = state.accounts[selected];
+  if (!account) return;
+
+  const typedPassword = prompt(`Enter the current password for ${account.name}:`);
+  if (typedPassword === null) return;
+  if (typedPassword !== account.password) {
+    alert('Incorrect password.');
+    return;
+  }
+
+  const nextName = prompt(`New name for ${account.name}:`, account.name);
+  if (!nextName || !nextName.trim()) return;
+
+  const cleanName = nextName.trim();
+  const existing = Object.keys(state.accounts).find((name) => name !== selected && state.accounts[name].name.toLowerCase() === cleanName.toLowerCase());
+  if (existing) {
+    alert('That account name is already in use.');
+    return;
+  }
+
+  account.name = cleanName;
+  state.accounts[selected] = account;
+  populateAccountSelect();
+  setCurrentAccount(selected);
   saveStore();
 }
 
@@ -770,6 +977,61 @@ function setKeybind(action, key) {
   saveKeybindProfiles();
 }
 
+function handleMobileDirection(directionName) {
+  const map = {
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 }
+  };
+
+  const vector = map[directionName];
+  if (vector) {
+    applyDirectionVector(vector);
+    return;
+  }
+
+  if (directionName === 'pause') {
+    togglePause();
+  }
+  if (directionName === 'restart') {
+    resetGame();
+    setScreen('playing');
+  }
+}
+
+function updateMobileControls() {
+  const isMobile = window.matchMedia('(max-width: 760px)').matches || ('ontouchstart' in window && window.innerWidth < 760);
+  mobileControls.classList.toggle('visible', isMobile);
+}
+
+function handleGamepad() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const pad = pads[0];
+  if (!pad) return;
+
+  const axes = pad.axes;
+  const horizontal = Math.round(axes[0] || 0);
+  const vertical = Math.round(axes[1] || 0);
+
+  if (Math.abs(horizontal) > 0.5 || Math.abs(vertical) > 0.5) {
+    if (Math.abs(horizontal) > Math.abs(vertical)) {
+      applyDirectionVector(horizontal > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
+    } else {
+      applyDirectionVector(vertical > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
+    }
+  }
+
+  const pausePressed = pad.buttons[9]?.pressed || pad.buttons[7]?.pressed;
+  if (pausePressed) togglePause();
+
+  const restartPressed = pad.buttons[8]?.pressed || pad.buttons[6]?.pressed;
+  if (restartPressed) {
+    resetGame();
+    setScreen('playing');
+  }
+}
+
 async function init() {
   await loadStore();
   ensureGuestAccount();
@@ -780,17 +1042,17 @@ async function init() {
 
   document.getElementById('startBtn').addEventListener('click', () => {
     resetGame();
-    hideStart();
+    setScreen('playing');
   });
 
   document.getElementById('restartBtn').addEventListener('click', () => {
     resetGame();
-    hideStart();
+    setScreen('playing');
   });
 
   document.getElementById('pauseRestartBtn').addEventListener('click', () => {
     resetGame();
-    hideAllOverlays();
+    setScreen('playing');
   });
 
   document.getElementById('deathRestartBtn').addEventListener('click', () => {
@@ -804,6 +1066,7 @@ async function init() {
 
   document.getElementById('switchAccountBtn').addEventListener('click', switchAccount);
   document.getElementById('addAccountBtn').addEventListener('click', addAccount);
+  document.getElementById('renameAccountBtn').addEventListener('click', renameAccount);
   document.getElementById('removeAccountBtn').addEventListener('click', removeAccount);
 
   autoReplayToggle.addEventListener('change', () => {
@@ -825,11 +1088,12 @@ async function init() {
   });
 
   diffSelect.addEventListener('change', (event) => {
-    if (state.running) {
+    const next = event.target.value;
+    if (state.running && state.screen === 'playing') {
       diffSelect.value = state.mode;
       return;
     }
-    state.mode = event.target.value;
+    state.mode = next;
     pauseDifficulty.value = state.mode;
     deathDifficulty.value = state.mode;
     if (!state.running) {
@@ -863,15 +1127,36 @@ async function init() {
   leaderboardSelect.addEventListener('change', renderLeaderboards);
   document.addEventListener('keydown', handleKeyInput);
 
+  document.querySelectorAll('[data-direction]').forEach((button) => {
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      handleMobileDirection(button.dataset.direction);
+    });
+  });
+
+  document.querySelectorAll('[data-action]').forEach((button) => {
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      handleMobileDirection(button.dataset.action);
+    });
+  });
+
+  window.addEventListener('resize', updateMobileControls);
+  window.addEventListener('gamepadconnected', () => {});
+  setInterval(handleGamepad, 90);
+
   state.mode = diffSelect.value || 'easy';
   pauseDifficulty.value = state.mode;
   deathDifficulty.value = state.mode;
+  updateMobileControls();
   placeFood();
   updateHud();
   renderLeaderboards();
   loadKeybindProfiles();
   applyKeybindProfile('default');
   renderKeybinds();
+  setScreen('start');
+  draw();
 }
 
 init();
