@@ -2,7 +2,7 @@
 
 *(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ Welcome to the coziest, most aesthetic little snake game on the interwebs! ✧ﾟ･: *ヽ(◕ヮ◕ヽ)*
 
-Wrap yourself in a blanket, grab a warm cup of matcha, and get ready to slither your way to the top of the leaderboards! This isn't just any regular retro arcade game—it's a whole *vibe*. With a sleek dark-mode interface and perfectly chill gameplay, you'll be obsessed in no time. 💖
+Wrap yourself in a blanket, grab a warm cup of matcha, and get ready to slither your way to the top of the leaderboards! With a sleek dark-mode interface and perfectly chill gameplay, you'll be obsessed in no time. 💖
 
 ---
 
