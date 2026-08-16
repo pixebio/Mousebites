@@ -23,8 +23,8 @@ Get ready to fall in love with these adorable little details:
 *   **☁️ Difficulty Settings:** Choose your vibe! Whether you want a relaxed, cozy "Easy" mode or a super-speedy challenge.
 *   **🔁 Auto-Replay:** Too addicted to stop? Check the auto-replay box and keep the fun rolling endlessly!
 *   **🏆 Leaderboards:** Compete with your besties (or yourself!) to get the highest score.
-*   **⚙️ Custom Options:** Tweak the game to fit your exact aesthetic and playstyle.
-*   **🗂️ Account Integration:** Save your progress and flex your high scores!
+*   **⚙️ Custom Options:** Tweak the game to fit your exact aesthetic and playstyle. *feature pending*
+*   **🗂️ Account Integration:** Save your progress and flex your high scores! *feature pending*
 
 ---
 
@@ -64,7 +64,6 @@ Want to run this cozy little game on your own machine? It's super easy!
    git clone [https://github.com/pixebio/Mousebites.git]
 
 
-
 2. **Open the Folder:**
 ```bash
 cd Mousebites
@@ -73,7 +72,7 @@ cd Mousebites
 
 
 3. **Launch with Live Server:**
-Pop open your favorite code editor (like VS Code), right-click `index.html`, and select **"Open with Live Server"**. (You'll see it running smoothly at `http://127.0.0.1:5500/index.html` just like in our screenshots! ✨)
+Pop open your favorite code editor (like VS Code), right-click `index.html`, and select **"Open with Live Server"**. (You'll see it running smoothly at `http://127.0.0.1:5500/index.html` just like in our screenshots! ✨) *screenshots pending*
 
 ---
 
